@@ -1,0 +1,460 @@
+---
+title: "지역사회건강조사 심층분석 Dashboard"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+    social: menu
+    theme: simplex
+    css: mycss.css
+---
+
+
+```{r setup, include=FALSE}
+
+# remotes::install_github("timelyportfolio/dataui")
+library(shiny)
+library(plotly)
+library(leaflet)
+library(leaflegend)
+library(tidyverse)
+library(sf)
+library(highcharter)
+library(reactable)
+library(reactablefmtr)
+library(htmltools)
+library(tidyr)  # pivot_wider()
+library(tippy)
+
+# 지역사회건강조사 조사기간
+totalyears_chs_rel = 2008:2022
+
+
+# e-지방지표
+totalyears = 2005:2022
+min_year = min(totalyears)
+max_year = max(totalyears)
+
+# # dataset
+# db = qs::qread("data/db.qs")  # list
+# dbinfo = qs::qread("data/dbinfo.qs") # data.frame
+# 
+# db2 = qs::qread("data/db2.qs")
+# dbinfo2 = qs::qread("data/dbinfo2.qs")
+
+# dataset for test
+db = qs::qread("data/db_tmp.qs")  # list
+dbinfo = qs::qread("data/dbinfo.qs") # data.frame
+
+db2 = qs::qread("data/db2_tmp.qs")
+dbinfo2 = qs::qread("data/dbinfo2.qs")
+
+chscodebook = qs::qread('data/chs_codebook.qs')
+
+
+
+chscate1 = c('전체', as.character(unique(dbinfo$cate1)))
+ecate1 = c('전체', as.character(unique(dbinfo2$list_nm)))
+indexlist = as.character(unique(dbinfo$tbl_nm2))
+indexlist2 = as.character(unique(dbinfo2$tbl_nm))
+
+
+# 연관성지표 
+load("data/dbinfo_tot.rda")
+load("data/npop.rda")
+
+# # 지표 
+# selected_x = 1
+# selected_y = 2
+# 
+# input = list()
+# input$rel_myyear = 2022
+# input$rel_myregionunit = '시도'
+# input$rel_mycategory = '조율'
+# 
+# output = list()
+```
+
+
+
+연관성분석 {data-navmenu='심층분석'}
+==============================================
+
+Sidebar {.sidebar data-width=400}
+--------------------------------------------------------
+
+
+### <small>**옵션**</small> {data-height=400}
+
+```{r}
+# 
+# fluidPage(
+#     fluidRow(
+#         column(6, 
+#                 div(style = "visibility: visible;", 
+#                     uiOutput('select_rel_mycate'))
+#         ), 
+#         column(6, 
+#                uiOutput('select_rel_myregionunit')
+#         )
+#     ), 
+#     fluidRow(
+#         column(12, 
+#                uiOutput('select_rel_myyear')
+#         )
+#     )
+# )
+
+uiOutput('select_rel_mycate')
+uiOutput('select_rel_myregionunit')
+uiOutput('select_rel_myyear')
+
+
+# Input ---------------------------------------
+
+output$select_rel_mycate <- renderUI({
+    radioButtons('rel_mycate', label=HTML('<b><small>구분</small></b>'), choices=c('조율', '표준화율'), selected="조율")
+})
+
+output$select_rel_myregionunit <- renderUI({
+    radioButtons('rel_myregionunit', label=HTML('<b><small>지역단위</small></b>'), choices=c('시도', '시군구'), selected="시도")
+})
+
+output$select_rel_myyear <- renderUI({
+    sliderInput('rel_myyear', label=HTML('<b><small>조사연도</small></b>'), sep="",  min=min(totalyears_chs_rel), max=max(totalyears_chs_rel), 
+                value=min(totalyears_chs_rel), step=1, animate=TRUE, ticks=T)
+})
+
+
+```
+
+### <small>**지표 선택**</small> {data-height=700}
+
+```{r}
+
+        fluidPage(
+            
+                fluidRow(
+                    column(width=10),
+                    column(width=2, uiOutput('ui_gen_myfig', inline=T))
+                ), 
+                
+                reactableOutput("selected_xy"), 
+                tags$br(),
+                tags$br(),
+               
+                
+                tabsetPanel(
+                    tabPanel(
+                        title="X축", 
+                        tags$br(), 
+                        reactableOutput("table_x")
+                    ), 
+                    tabPanel(
+                        title="Y축", 
+                        tags$br(), 
+                        reactableOutput("table_y")
+                    )
+                ), 
+                
+                tags$style(
+                
+                    HTML("
+                     .tabbable > .nav > li > a {
+                            padding: 0.5vh 0.5vw;
+                            font-size: 11px;
+                            font-weight: bold;
+                            
+                     }
+                     
+                     .content-wrapper {
+                       background-color: #FFF;
+                      }
+                    ")
+                )
+                
+                
+                
+                
+        )
+        
+        # 선택패널 (x축)
+         output$table_x <- renderReactable({
+            reactable(
+                dbinfo_tot,
+                # groupBy="cate",
+                columns = list(
+                    cate = colDef("자료원", align="left", maxWidth=120, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px')), 
+                    cate1 = colDef("영역1", align="left", maxWidth=80, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px')),
+                    cate2 = colDef("영역2", align="left", maxWidth=80, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px')), 
+                    tbl_nm = colDef("지표", align="left", maxWidth=180, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px'))),
+                showPageSizeOptions = TRUE,
+                
+                selection = "single",
+                onClick = "select", 
+                defaultSelected = 1,
+                rownames =F, 
+                compact=T, 
+                searchable=T, 
+                highlight=T, 
+                language = reactableLang(
+                        noData = "해당 지표가 검색되지 않음"
+                      ),
+               theme = reactableTheme(
+                    highlightColor = "#f3fafb",
+                    borderColor = "hsl(0, 0%, 93%)",
+                    headerStyle = list(borderColor = "hsl(0, 0%, 90%)")
+                  ),
+              class = "index-tbl"
+            )
+        })
+         
+          # 선택패널 (y축)       
+         output$table_y <- renderReactable({
+            reactable(
+                dbinfo_tot,
+                # groupBy="cate",
+                columns = list(
+                    cate = colDef("자료원", align="left", maxWidth=150, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px')), 
+                    cate1 = colDef("영역1", align="left", maxWidth=80, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px')),
+                    cate2 = colDef("영역2", align="left", maxWidth=80, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px')), 
+                    tbl_nm = colDef("지표", align="left", maxWidth=300, headerStyle = list(fontSize = '11px'), style=list(fontSize='11px'))),
+                showPageSizeOptions = TRUE,
+                
+                selection = "single",
+                onClick = "select", 
+                # defaultSelected = 2,
+                rownames =F, 
+                compact=T, 
+                searchable=T, 
+                highlight=T, 
+                language = reactableLang(
+                        noData = "해당 지표가 검색되지 않음"
+                      ),
+               theme = reactableTheme(
+                    highlightColor = "#f3fafb",
+                    borderColor = "hsl(0, 0%, 93%)",
+                    headerStyle = list(borderColor = "hsl(0, 0%, 90%)")
+                  ),
+              class = "index-tbl2"
+            )
+        })
+    
+
+        # 출력물 만들기
+        output$selected_xy <- renderReactable({
+            
+            selected_x <- getReactableState("table_x", "selected")
+            selected_y <- getReactableState("table_y", "selected")
+            
+            
+            # if(!is.null(selected_x)) dbinfo_tot %>% slice(selected_x) %>% mutate(category = 'x축') %>% dplyr::select(category, cate, tbl_nm) -> xx1
+            # else data.frame(category='x축', cate='미선택', tbl_nm='미선택') -> xx1
+            # 
+            # if(!is.null(selected_y)) dbinfo_tot %>% slice(selected_y) %>% mutate(category = 'y축') %>% dplyr::select(category, cate, tbl_nm) -> xx2
+            # else data.frame(category='y축', cate='미선택', tbl_nm='미선택') -> xx2
+
+            # Provide a default selection if none is made
+            if(is.null(selected_x) || length(selected_x) == 0) {
+                data.frame(category='x축', cate='미선택', tbl_nm='미선택') -> xx1
+            }else{
+                dbinfo_tot %>% slice(selected_x) %>% mutate(category = 'x축') %>% dplyr::select(category, cate, tbl_nm) -> xx1
+            }
+        
+            if(is.null(selected_y) || length(selected_y) == 0) {
+                data.frame(category='y축', cate='미선택', tbl_nm='미선택') -> xx2
+            }else{
+                dbinfo_tot %>% slice(selected_y) %>% mutate(category = 'y축') %>% dplyr::select(category, cate, tbl_nm) -> xx2
+            }
+            
+            
+            xx = rbind.data.frame(xx1, xx2)
+            
+            xx %>% 
+                reactable(
+                    columns = list(
+                        category = colDef("구분", align="left", maxWidth=80, headerStyle = list(fontSize = '10px'), style=list(fontSize='11px')), 
+                        cate = colDef("자료원", align="left", maxWidth=150, headerStyle = list(fontSize = '10px'), style=list(fontSize='11px')), 
+                        tbl_nm = colDef("지표", align="left", maxWidth=500, headerStyle = list(fontSize = '10px'), style=list(fontSize='11px'))
+                    ), 
+                    compact=T,
+                    rownames=F, 
+                    outlined=F, 
+                    bordered=F, 
+                    showSortable=F
+                    
+                )
+           
+                
+                
+        })
+        
+```
+
+
+
+
+Col {data-width=500}
+--------------------------------------------------------
+
+
+
+
+### <small>**산점도**</small> {data-height=1000}
+
+
+```{r}
+
+output$myrelchart = renderHighchart({
+    
+    selected_x <- getReactableState("table_x", "selected")
+    selected_y <- getReactableState("table_y", "selected")
+
+    req(selected_x, selected_y, input$rel_mycate, input$rel_myyear, input$rel_myregionunit)
+    
+    # if(!is.null(selected_x)) dbinfo_tot %>% slice(selected_x) %>% mutate(category = 'x축') %>% dplyr::select(category, cate, tbl_nm) -> xx1
+    # else data.frame(category='x축', cate='미선택', tbl_nm='미선택') -> xx1
+    # 
+    # if(!is.null(selected_y)) dbinfo_tot %>% slice(selected_y) %>% mutate(category = 'y축') %>% dplyr::select(category, cate, tbl_nm) -> xx2
+    # else data.frame(category='y축', cate='미선택', tbl_nm='미선택') -> xx2
+
+    # Provide a default selection if none is made
+      if(is.null(selected_x) || length(selected_x) == 0) {
+            data.frame(category='x축', cate='미선택', tbl_nm='미선택') -> x1
+        }else{
+            dbinfo_tot %>% slice(selected_x) %>% mutate(category = 'x축') %>% dplyr::select(category, cate, tbl_nm) -> x1
+        }
+    
+        if(is.null(selected_y) || length(selected_y) == 0) {
+            data.frame(category='y축', cate='미선택', tbl_nm='미선택') -> y1
+        }else{
+            dbinfo_tot %>% slice(selected_y) %>% mutate(category = 'y축') %>% dplyr::select(category, cate, tbl_nm) -> y1
+        }
+        
+    
+        if(x1$tbl_nm[1] != '미선택' && y1$tbl_nm[1] != '미선택'){
+            
+            
+            
+            if(x1$cate == '지역사회건강조사'){
+                idx = which(dbinfo$tbl_nm2 == x1$tbl_nm[1])
+                db[[idx]] %>% as.data.frame() %>% filter(category==ifelse(input$rel_mycate=='조율', 'CR', 'SR')) -> xx
+            }else{
+                idx = which(dbinfo2$tbl_nm == x1$tbl_nm[1])
+                db2[[idx]] -> xx
+                
+            }
+    
+    
+             if(y1$cate == '지역사회건강조사'){
+                idx = which(dbinfo$tbl_nm2 == y1$tbl_nm[1])
+                db[[idx]] %>% as.data.frame() %>% filter(category==ifelse(input$rel_mycate=='조율', 'CR', 'SR')) -> yy
+            }else{
+                idx = which(dbinfo2$tbl_nm == y1$tbl_nm[1])
+                db2[[idx]] -> yy
+            }
+            
+            xx %>% mutate(sggnm12 = paste0(sggnm1, " ", ifelse(is.na(sggnm2), "", sggnm2))) -> xx
+            yy %>% mutate(sggnm12 = paste0(sggnm1, " ", ifelse(is.na(sggnm2), "", sggnm2))) -> yy
+            
+            xx %>% filter(sgglv == ifelse(input$rel_myregionunit=="시도", 1, 2)) %>% pull(value) -> xx_ref
+            yy %>% filter(sgglv == ifelse(input$rel_myregionunit=="시도", 1, 2)) %>% pull(value) -> yy_ref
+            
+            mymin_x = min(xx_ref, na.rm=T)
+            mymax_x = max(xx_ref, na.rm=T)
+            mymin_y = min(yy_ref, na.rm=T)
+            mymax_y = max(yy_ref, na.rm=T)
+            
+            xx %>% filter(sgglv == ifelse(input$rel_myregionunit=='시도', 1, 2)) %>% 
+                filter(year == input$rel_myyear) %>% dplyr::select(sggnm1, sggnm12, year, value) %>% rename(value1=value) -> xx
+            yy %>% filter(sgglv == ifelse(input$rel_myregionunit=='시도', 1, 2)) %>% 
+                filter(year == input$rel_myyear) %>% dplyr::select(sggnm1, sggnm12, year, value) %>% rename(value2=value) -> yy
+            npop %>% filter(sgglv == ifelse(input$rel_myregionunit=='시도', 1, 2)) %>% filter(year == input$rel_myyear) %>% dplyr::select(sggnm12, year, value) %>% rename(npop = value) %>% mutate(year = as.numeric(year)) -> pop
+            
+            xx %>% 
+                left_join(yy, by=c("sggnm12", "sggnm1", "year")) %>% 
+                left_join(pop, by=c("sggnm12", "year")) -> final
+            
+            
+            
+            
+            if(input$rel_myregionunit == '시도'){
+         
+                    final %>%
+                        mutate(npop2 = format(npop, big.mark=","), 
+                               xname = x1$tbl_nm[1], 
+                               yname = y1$tbl_nm[1]) %>% 
+                            hchart(type="scatter", hcaes(x = value1, y = value2), color="#458B74", minSize=20, maxSize=100) %>% 
+                            hc_xAxis(title=list(text=x1$tbl_nm), min=mymin_x*0.9, max=mymax_x*1.1) %>% 
+                            hc_yAxis(title=list(text=y1$tbl_nm), min=mymin_y*0.9, max=mymax_y*1.1) %>% 
+                            hc_tooltip(formatter = JS("function(){
+                                                      return( '<b>지역</b>: ' + this.point.sggnm12 + 
+                                                              '<br><b>인구수</b>: ' + this.point.npop2 + 
+                                                              '<br><b>' + this.point.xname + '</b>: ' + this.point.value1 + '%' + 
+                                                              '<br><b>' + this.point.yname + '</b>: ' + this.point.value2 + '%'
+                                                             )}")) %>% 
+                            hc_chart(zoomType="x") %>%
+                            hc_title(text = paste0(x1$tbl_nm, " & ", y1$tbl_nm, " (", input$rel_myyear, ")")[1]) %>%
+                            hc_subtitle(text="시도단위에서의 산점도") %>%
+                            hc_add_theme(hc_theme_smpl()) %>% 
+                            hc_size(height=500)
+                
+                
+                        
+            }else{
+                 final %>%
+                        mutate(npop2 = format(npop, big.mark=","), 
+                               xname = x1$tbl_nm[1], 
+                               yname = y1$tbl_nm[1]) %>% 
+                        hchart(type="scatter", hcaes(x = value1, y = value2, group=sggnm1)) %>%
+                        hc_xAxis(title=list(text=x1$tbl_nm), min=mymin_x*0.9, max=mymax_x*1.1) %>% 
+                        hc_yAxis(title=list(text=y1$tbl_nm), min=mymin_y*0.9, max=mymax_y*1.1) %>% 
+                        hc_tooltip(formatter = JS("function(){
+                                                  return( '<b>지역</b>: ' + this.point.sggnm12 + 
+                                                          '<br><b>인구수</b>: ' + this.point.npop2 + 
+                                                          '<br><b>' + this.point.xname + '</b>: ' + this.point.value1 + '%' + 
+                                                          '<br><b>' + this.point.yname + '</b>: ' + this.point.value2 + '%'
+                                                         )}")) %>% 
+                        hc_chart(zoomType="x") %>%
+                        hc_title(text = paste0(x1$tbl_nm, " & ", y1$tbl_nm, " (", input$rel_myyear, ")")[1]) %>%
+                        hc_subtitle(text="시군구 단위에서의 산점도 (시도단위별 구분)") %>%
+                        hc_add_theme(hc_theme_smpl()) %>% 
+                        hc_legend(align="right", verticalAlign="top", layout="vertical") %>% 
+                        hc_size(height=500)
+                        
+            }
+  
+        }else{
+            hchart()
+    }
+})
+
+
+fluidPage(
+    fluidRow(
+        column(width=12, 
+               highchartOutput('myrelchart'), 
+                tags$style(
+
+        HTML("
+         overflow: visible;
+         visibility: visible;
+
+         }
+        ")
+    ))
+
+    )
+)
+
+```
+
+
+
+
+
+
+
+
+
