@@ -1,0 +1,122 @@
+/* Custom styles for text with colored text and background */
+
+#sidebar.section.sidebar {
+
+  background-color: white; 
+  font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+
+}
+
+.section.sidebar { 
+  width: 50px;
+  top: 45px;
+  background-color: rgba(253,253, 253);
+}
+
+/* 데이터구조 - 그림 마진 */
+.custom-img {
+    margin: 4px;  /* Adjust as needed */
+}
+
+/* 데이터셋 - 원, 사각형 아이콘 관련 */
+.icon-row {
+  display: flex;
+  justify-content: space-around; /* Or 'space-between' depending on desired spacing */
+  align-items: center;
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.icon-container {
+  display: flex;
+  flex-direction: column; /* Stack icon and text vertically */
+  align-items: center;
+  justify-content: center;
+  margin-left: 3px;
+  margin-right: 3px;
+  margin-top: 1px;
+  margin-bottom: 1px;
+  background-color: white; /* White background */
+  width: 63px; /* Adjust size as needed */
+  height: 63px; /* Adjust size as needed */
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1); /* Horizontal offset, vertical offset, blur radius, color */
+  padding: 3px; /* Space inside the circle */
+  color: rgba(182, 182, 182);
+  transition: background-color 0.3s;
+}
+
+.icon-container:hover {
+    background-color: rgba(182, 182, 182);
+    color: white;
+    cursor: pointer;
+}
+
+.icon-container:hover .icon-label{
+    color: white;
+}
+
+.icon-container.circle{
+  border-radius: 50%; /* Circular shape */
+}
+
+icon-container.square{
+}
+
+.icon-container i {
+  font-size: 2em; /* icon size */
+}
+
+.icon-label {
+  display: block; /* Ensure the label appears below the icon */
+  margin-top: 3px; /* Space between the circle and the text */
+  color: rgba(150, 150, 150);
+  font-size: 10px;
+}
+
+
+# 지역현황 테이블
+.bar-cell {
+  display: flex;
+  align-items: center;
+}
+.number {
+  font-size: 13.5px;
+  white-space: pre;
+}
+.bar-chart {
+  flex-grow: 1;
+  margin-left: 6px;
+  height: 22px;
+}
+.bar {
+  height: 100%;
+}
+
+.icon-link {
+    text-decoration: none;
+}
+
+.icon-link:hover{
+    text-decoration: none;
+}
+
+
+/* 데이터셋 2 */
+#dataset2 {
+    disply: none;
+}
+
+.btn.year {
+    color: royalblue;
+}
+}
+
+
+/* 지역현황 테이블 */
+/* 테이블 길어질 경우 tabset에 스크롤 가능하도록 */
+.mytab1_scroll {
+    overflow-y: scroll;
+}
